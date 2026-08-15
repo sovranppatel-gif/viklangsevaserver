@@ -56,11 +56,32 @@ app.use(
 
 app.use(express.json({ limit: '2mb' }))
 
-app.get('/api/health', (_req, res) => {
+function sendHealth(_req, res) {
   res.json({
     ok: true,
     service: 'viklang-sewa-sansthan-api',
   })
+}
+
+app.get('/api/health', sendHealth)
+app.get('/health', sendHealth)
+
+app.get('/api/health/db', async (_req, res) => {
+  try {
+    await connectDB()
+    res.json({
+      ok: true,
+      service: 'viklang-sewa-sansthan-api',
+      database: 'connected',
+    })
+  } catch (error) {
+    console.error('Database health check failed:', error.message)
+    res.status(503).json({
+      ok: false,
+      service: 'viklang-sewa-sansthan-api',
+      database: 'unavailable',
+    })
+  }
 })
 
 app.use(async (req, res, next) => {
@@ -85,7 +106,9 @@ app.use(async (req, res, next) => {
 })
 
 app.get('/uploads/:folder/:filename', serveUploadedFile)
+app.get('/api/uploads/:folder/:filename', serveUploadedFile)
 app.use('/uploads', express.static(uploadsRoot))
+app.use('/api/uploads', express.static(uploadsRoot))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/cms', cmsRoutes)
