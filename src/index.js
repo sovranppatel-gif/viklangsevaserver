@@ -1,7 +1,7 @@
 import './config/env.js'
 import cors from 'cors'
 import express from 'express'
-import { connectDB } from './config/db.js'
+import { connectDB, describeMongoUri, mongoErrorCode, mongoErrorMessage } from './config/db.js'
 import { serveUploadedFile, uploadsRoot } from './middleware/upload.js'
 import authRoutes from './routes/auth.js'
 import aboutCmsRoutes from './routes/aboutCms.js'
@@ -67,19 +67,26 @@ app.get('/api/health', sendHealth)
 app.get('/health', sendHealth)
 
 app.get('/api/health/db', async (_req, res) => {
+  const uriInfo = describeMongoUri()
+
   try {
     await connectDB()
     res.json({
       ok: true,
       service: 'viklang-sewa-sansthan-api',
       database: 'connected',
+      ...uriInfo,
     })
   } catch (error) {
-    console.error('Database health check failed:', error.message)
+    const code = error.dbCode || mongoErrorCode(error)
+    console.error('Database health check failed:', code)
     res.status(503).json({
       ok: false,
       service: 'viklang-sewa-sansthan-api',
       database: 'unavailable',
+      code,
+      message: mongoErrorMessage(code),
+      ...uriInfo,
     })
   }
 })
@@ -94,12 +101,13 @@ app.use(async (req, res, next) => {
     await connectDB()
     next()
   } catch (error) {
-    console.error('MongoDB connection failed:', error.message)
+    const code = error.dbCode || mongoErrorCode(error)
+    console.error('MongoDB connection failed:', code)
     if (!res.headersSent) {
       res.status(503).json({
         success: false,
-        message:
-          'Database unavailable. Check MONGODB_URI and Atlas network access (allow 0.0.0.0/0 for Vercel).',
+        code,
+        message: mongoErrorMessage(code),
       })
     }
   }

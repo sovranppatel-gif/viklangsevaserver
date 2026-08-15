@@ -1,5 +1,5 @@
 import app from '../src/index.js'
-import { connectDB } from '../src/config/db.js'
+import { connectDB, mongoErrorCode, mongoErrorMessage } from '../src/config/db.js'
 
 function isHealthPath(url = '') {
   const pathname = String(url).split('?')[0]
@@ -48,13 +48,11 @@ export default async function handler(req, res) {
       return
     }
 
-    res.status(500).json({
+    const code = error.dbCode || mongoErrorCode(error)
+    res.status(503).json({
       success: false,
-      message: 'Database unavailable',
-      error:
-        process.env.NODE_ENV === 'production'
-          ? 'Database connection failed'
-          : error.message,
+      code,
+      message: mongoErrorMessage(code),
     })
   }
 }

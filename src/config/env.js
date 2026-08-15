@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
  * On Vercel, environment variables are injected automatically.
  */
 export function loadEnv() {
-  if (process.env.VERCEL) {
+  if (process.env.MONGODB_URI) {
     return
   }
 
