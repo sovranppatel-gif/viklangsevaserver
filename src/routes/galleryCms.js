@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { GALLERY_CMS_KEYS } from '../data/galleryDefaults.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import {
   getGalleryPhotos,
   getGalleryVideos,
@@ -97,7 +98,7 @@ router.post('/gallery/upload', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose an image file.' })
     }
 
-    const imageUrl = `/uploads/gallery/${req.file.filename}`
+    const imageUrl = publicUploadPath('gallery', req.file.filename)
     return res.json({
       success: true,
       message: 'Image uploaded successfully.',

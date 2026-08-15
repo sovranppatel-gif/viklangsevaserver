@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import { Student } from '../models/Student.js'
 
 const router = Router()
@@ -146,7 +147,7 @@ router.post('/upload', (req, res) => {
     return res.json({
       success: true,
       message: 'Photo uploaded successfully.',
-      data: { imageUrl: `/uploads/student/${req.file.filename}` },
+      data: { imageUrl: publicUploadPath('student', req.file.filename) },
     })
   })
 })

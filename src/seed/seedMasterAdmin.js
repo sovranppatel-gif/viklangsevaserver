@@ -1,11 +1,6 @@
-import dotenv from 'dotenv'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import '../config/env.js'
 import { connectDB } from '../config/db.js'
 import { Admin } from '../models/Admin.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-dotenv.config({ path: path.join(__dirname, '../../.env') })
 
 export async function seedMasterAdmin() {
   const email = (process.env.MASTER_ADMIN_EMAIL || 'vss.about@gmail.com').toLowerCase().trim()
@@ -30,7 +25,7 @@ export async function seedMasterAdmin() {
 
 async function run() {
   try {
-    await connectDB(process.env.MONGODB_URI)
+    await connectDB()
     await seedMasterAdmin()
   } catch (error) {
     console.error('Seed failed:', error.message)

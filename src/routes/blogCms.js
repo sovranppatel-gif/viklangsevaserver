@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { BLOG_CMS_KEYS } from '../data/blogDefaults.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import {
   getBlogArticles,
   getEventItems,
@@ -87,7 +88,7 @@ router.post('/blog/upload', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose an image file.' })
     }
 
-    const imageUrl = `/uploads/blog/${req.file.filename}`
+    const imageUrl = publicUploadPath('blog', req.file.filename)
     return res.json({
       success: true,
       message: 'Image uploaded successfully.',

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { IMPACT_CMS_KEYS } from '../data/impactDefaults.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import {
   getImpactCampaign,
   getImpactStats,
@@ -112,7 +113,7 @@ router.post('/impact/upload', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose an image file.' })
     }
 
-    const imageUrl = `/uploads/impact/${req.file.filename}`
+    const imageUrl = publicUploadPath('impact', req.file.filename)
     return res.json({
       success: true,
       message: 'Image uploaded successfully.',

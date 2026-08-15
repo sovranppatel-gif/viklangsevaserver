@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { ABOUT_KEYS } from '../data/aboutDefaults.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import { getOrCreateAbout, toAboutResponse } from '../models/AboutContent.js'
 
 const router = Router()
@@ -63,7 +64,7 @@ router.post('/about/upload', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose an image file.' })
     }
 
-    const imageUrl = `/uploads/about/${req.file.filename}`
+    const imageUrl = publicUploadPath('about', req.file.filename)
     return res.json({
       success: true,
       message: 'Image uploaded successfully.',

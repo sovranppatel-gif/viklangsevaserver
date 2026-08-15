@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadHeroImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import { DEFAULT_HERO_CONTENT, HeroContent } from '../models/HeroContent.js'
 
 const router = Router()
@@ -83,7 +84,7 @@ router.post('/hero/upload', requireAuth, (req, res) => {
     }
 
     try {
-      const imageUrl = `/uploads/hero/${req.file.filename}`
+      const imageUrl = publicUploadPath('hero', req.file.filename)
       const doc = await getOrCreateHero()
       doc.imageUrl = imageUrl
       await doc.save()

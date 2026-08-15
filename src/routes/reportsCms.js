@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { REPORTS_CMS_KEYS } from '../data/reportsDefaults.js'
 import { requireAuth } from '../middleware/auth.js'
 import { uploadCmsDocument, uploadCmsImage } from '../middleware/upload.js'
+import { publicUploadPath } from '../utils/publicUrl.js'
 import {
   getOrCreateReports,
   getReportItems,
@@ -83,7 +84,7 @@ router.post('/reports/upload', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose a PDF or document file.' })
     }
 
-    const fileUrl = `/uploads/reports/${req.file.filename}`
+    const fileUrl = publicUploadPath('reports', req.file.filename)
     return res.json({
       success: true,
       message: 'Document uploaded successfully.',
@@ -106,7 +107,7 @@ router.post('/reports/upload-image', requireAuth, (req, res) => {
       return res.status(400).json({ success: false, message: 'Please choose an image file.' })
     }
 
-    const imageUrl = `/uploads/reports/${req.file.filename}`
+    const imageUrl = publicUploadPath('reports', req.file.filename)
     return res.json({
       success: true,
       message: 'Image uploaded successfully.',
