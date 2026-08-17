@@ -23,6 +23,7 @@ const app = express()
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 const LAN_ORIGIN_RE =
   /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/
+const VERCEL_FRONTEND_RE = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i
 
 const extraOrigins = (process.env.CLIENT_ORIGINS || '')
   .split(',')
@@ -35,18 +36,28 @@ const staticOrigins = new Set([
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
+  'https://sovranppatel-gif-viklangsevafronten.vercel.app',
+  'https://viklangsevafrontend.vercel.app',
   ...extraOrigins,
 ])
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true
+  if (staticOrigins.has(origin)) return true
+  if (LAN_ORIGIN_RE.test(origin)) return true
+  if (VERCEL_FRONTEND_RE.test(origin)) return true
+  return false
+}
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || staticOrigins.has(origin) || LAN_ORIGIN_RE.test(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true)
         return
       }
 
-      callback(null, false)
+      callback(new Error(`CORS blocked origin: ${origin}`))
     },
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
