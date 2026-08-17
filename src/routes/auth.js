@@ -48,18 +48,27 @@ router.get('/me', async (req, res) => {
     const header = req.headers.authorization || ''
     const token = header.startsWith('Bearer ') ? header.slice(7) : null
     if (!token) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' })
+      return res.status(401).json({
+        success: false,
+        message: 'Please log in to continue.',
+      })
     }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret')
     const admin = await Admin.findById(payload.id)
     if (!admin || !admin.isActive) {
-      return res.status(401).json({ success: false, message: 'Unauthorized' })
+      return res.status(401).json({
+        success: false,
+        message: 'Your login session is invalid. Please sign in again.',
+      })
     }
 
     return res.json({ success: true, user: admin.toSafeJSON() })
   } catch {
-    return res.status(401).json({ success: false, message: 'Unauthorized' })
+    return res.status(401).json({
+      success: false,
+      message: 'Your login session is invalid. Please sign in again.',
+    })
   }
 })
 

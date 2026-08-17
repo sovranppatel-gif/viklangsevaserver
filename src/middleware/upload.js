@@ -20,6 +20,7 @@ export const reportsUploadsDir = path.join(uploadsRoot, 'reports')
 export const impactUploadsDir = path.join(uploadsRoot, 'impact')
 export const volunteerUploadsDir = path.join(uploadsRoot, 'volunteer')
 export const studentUploadsDir = path.join(uploadsRoot, 'student')
+export const donateUploadsDir = path.join(uploadsRoot, 'donate')
 
 function ensureDir(dir) {
   try {
@@ -41,6 +42,7 @@ ensureDir(reportsUploadsDir)
 ensureDir(impactUploadsDir)
 ensureDir(volunteerUploadsDir)
 ensureDir(studentUploadsDir)
+ensureDir(donateUploadsDir)
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 const ALLOWED_DOCS = new Set([
@@ -65,6 +67,7 @@ const destMap = {
   impact: impactUploadsDir,
   volunteer: volunteerUploadsDir,
   student: studentUploadsDir,
+  donate: donateUploadsDir,
 }
 
 function makeFilename(folder, originalname, fallbackExt, allowedExts) {

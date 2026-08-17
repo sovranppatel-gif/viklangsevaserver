@@ -16,6 +16,12 @@ function sanitizeText(value, max) {
     .slice(0, max)
 }
 
+function digitsOnly(value, max) {
+  return String(value || '')
+    .replace(/\D/g, '')
+    .slice(0, max)
+}
+
 function parseAmount(value) {
   const amount = Number(value)
   if (!Number.isFinite(amount) || amount < 1) return null
@@ -28,7 +34,7 @@ function parseDonationDate(value) {
   return Number.isNaN(date.getTime()) ? new Date() : date
 }
 
-function buildDonationPayload(body, { sourceDefault = 'website', requireEmail = false } = {}) {
+function buildDonationPayload(body, { sourceDefault = 'website', requireEmail = false, requireAadhaarOrPan = false } = {}) {
   const name = sanitizeText(body?.name, 120)
   const email = sanitizeText(body?.email, 160).toLowerCase()
   const phone = sanitizeText(body?.phone, 20)
@@ -38,7 +44,8 @@ function buildDonationPayload(body, { sourceDefault = 'website', requireEmail = 
   const source = SOURCES.includes(body?.source) ? body.source : sourceDefault
   const status = STATUSES.includes(body?.status) ? body.status : 'new'
   const paidConfirm = Boolean(body?.paidConfirm)
-  const pan = sanitizeText(body?.pan, 20).toUpperCase()
+  const aadhaarNumber = digitsOnly(body?.aadhaarNumber, 12)
+  const pan = sanitizeText(body?.pan, 10).toUpperCase()
   const address = sanitizeText(body?.address, 500)
   const receiptNumber = sanitizeText(body?.receiptNumber, 60)
   const notes = sanitizeText(body?.notes, 2000)
@@ -56,6 +63,20 @@ function buildDonationPayload(body, { sourceDefault = 'website', requireEmail = 
     return { error: 'Please provide a valid email address.' }
   }
 
+  if (aadhaarNumber && aadhaarNumber.length !== 12) {
+    return { error: 'Aadhaar number must be 12 digits, or leave it blank.' }
+  }
+
+  if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+    return { error: 'Please provide a valid PAN, or leave it blank.' }
+  }
+
+  if (requireAadhaarOrPan && !aadhaarNumber && !pan) {
+    return {
+      error: 'Please enter Aadhaar or PAN — at least one is required for the 80G receipt.',
+    }
+  }
+
   return {
     data: {
       name,
@@ -67,6 +88,7 @@ function buildDonationPayload(body, { sourceDefault = 'website', requireEmail = 
       source,
       status,
       paidConfirm,
+      aadhaarNumber,
       pan,
       address,
       receiptNumber,
@@ -94,7 +116,7 @@ router.post('/', async (req, res) => {
         method: req.body?.method || 'upi',
         status: 'new',
       },
-      { sourceDefault: 'website', requireEmail: true },
+      { sourceDefault: 'website', requireEmail: true, requireAadhaarOrPan: true },
     )
 
     if (parsed.error) {
@@ -225,6 +247,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
       'source',
       'status',
       'paidConfirm',
+      'aadhaarNumber',
       'pan',
       'address',
       'receiptNumber',
@@ -255,6 +278,17 @@ router.patch('/:id', requireAuth, async (req, res) => {
         continue
       }
       if (typeof req.body[field] === 'string') {
+        if (field === 'aadhaarNumber') {
+          const aadhaar = digitsOnly(req.body.aadhaarNumber, 12)
+          if (aadhaar && aadhaar.length !== 12) {
+            return res.status(400).json({
+              success: false,
+              message: 'Aadhaar number must be 12 digits, or leave it blank.',
+            })
+          }
+          donation.aadhaarNumber = aadhaar
+          continue
+        }
         const max =
           field === 'notes'
             ? 2000
@@ -267,7 +301,15 @@ router.patch('/:id', requireAuth, async (req, res) => {
                   : 60
         donation[field] = sanitizeText(req.body[field], max)
         if (field === 'email') donation.email = donation.email.toLowerCase()
-        if (field === 'pan') donation.pan = donation.pan.toUpperCase()
+        if (field === 'pan') {
+          donation.pan = donation.pan.toUpperCase()
+          if (donation.pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(donation.pan)) {
+            return res.status(400).json({
+              success: false,
+              message: 'Please provide a valid PAN, or leave it blank.',
+            })
+          }
+        }
       } else {
         donation[field] = req.body[field]
       }

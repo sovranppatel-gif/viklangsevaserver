@@ -50,6 +50,12 @@ const donationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    aadhaarNumber: {
+      type: String,
+      trim: true,
+      maxlength: 12,
+      default: '',
+    },
     pan: {
       type: String,
       trim: true,
@@ -102,6 +108,7 @@ export function toDonationResponse(doc) {
     source: item.source,
     status: item.status,
     paidConfirm: Boolean(item.paidConfirm),
+    aadhaarNumber: item.aadhaarNumber || '',
     pan: item.pan || '',
     address: item.address || '',
     receiptNumber: item.receiptNumber || '',

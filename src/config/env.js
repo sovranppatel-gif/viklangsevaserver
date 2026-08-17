@@ -7,10 +7,6 @@ import { fileURLToPath } from 'node:url'
  * On Vercel, environment variables are injected automatically.
  */
 export function loadEnv() {
-  if (process.env.MONGODB_URI) {
-    return
-  }
-
   const __dirname = path.dirname(fileURLToPath(import.meta.url))
   dotenv.config({ path: path.join(__dirname, '../../.env') })
 }
