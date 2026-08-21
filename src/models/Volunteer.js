@@ -55,11 +55,23 @@ const volunteerSchema = new mongoose.Schema(
       maxlength: 12,
       default: '',
     },
+    aadhaarDocumentUrl: {
+      type: String,
+      trim: true,
+      maxlength: 500,
+      default: '',
+    },
     pan: {
       type: String,
       trim: true,
       uppercase: true,
       maxlength: 10,
+      default: '',
+    },
+    panDocumentUrl: {
+      type: String,
+      trim: true,
+      maxlength: 500,
       default: '',
     },
     email: {
@@ -210,6 +222,7 @@ const volunteerSchema = new mongoose.Schema(
 volunteerSchema.index({ createdAt: -1 })
 volunteerSchema.index({ status: 1, createdAt: -1 })
 volunteerSchema.index({ volunteerCode: 1 }, { unique: true, sparse: true })
+volunteerSchema.index({ aadhaarNumber: 1 })
 volunteerSchema.index({ name: 1 })
 volunteerSchema.index({ phone: 1 })
 

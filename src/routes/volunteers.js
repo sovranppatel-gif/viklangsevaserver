@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
-import { uploadCmsImage } from '../middleware/upload.js'
+import { uploadCmsDocument, uploadCmsImage } from '../middleware/upload.js'
 import { publicUploadPath } from '../utils/publicUrl.js'
 import { Volunteer } from '../models/Volunteer.js'
 
@@ -60,7 +60,9 @@ function toVolunteerResponse(item, { includeSensitive = false } = {}) {
     photoUrl: item.photoUrl || '',
     aadhaarMasked: maskAadhaar(aadhaar),
     aadhaarNumber: includeSensitive ? aadhaar : undefined,
+    aadhaarDocumentUrl: item.aadhaarDocumentUrl || '',
     pan: item.pan || '',
+    panDocumentUrl: item.panDocumentUrl || '',
     email: item.email,
     phone: item.phone,
     whatsapp: item.whatsapp || item.phone || '',
@@ -104,7 +106,9 @@ function pickVolunteerFields(body) {
     bloodGroup: sanitizeText(body?.bloodGroup, 8),
     photoUrl: sanitizeText(body?.photoUrl, 500),
     aadhaarNumber: aadhaar,
+    aadhaarDocumentUrl: sanitizeText(body?.aadhaarDocumentUrl, 500),
     pan,
+    panDocumentUrl: sanitizeText(body?.panDocumentUrl, 500),
     email,
     phone: sanitizeText(body?.phone, 20),
     whatsapp: sanitizeText(body?.whatsapp, 20),
@@ -144,41 +148,39 @@ function validateIdentity({ email, aadhaarNumber, pan }) {
 
 router.post('/', async (req, res) => {
   try {
-    const name = sanitizeText(req.body?.name, 120)
-    const email = sanitizeText(req.body?.email, 160).toLowerCase()
-    const phone = sanitizeText(req.body?.phone, 20)
-    const interest = sanitizeText(req.body?.interest, 80)
-    const message = sanitizeText(req.body?.message, 5000)
-
-    if (!name || !email || !phone || !interest) {
+    const fields = pickVolunteerFields(req.body)
+    if (!fields.name || !fields.email || !fields.phone || !fields.interest) {
       return res.status(400).json({
         success: false,
         message: 'Name, email, phone and area of interest are required.',
       })
     }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (fields.aadhaarNumber.length !== 12) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid email address.',
+        message: 'Aadhaar number is required (12 digits) so you can download your ID card later.',
       })
     }
 
+    const identityError = validateIdentity(fields)
+    if (identityError) {
+      return res.status(400).json({ success: false, message: identityError })
+    }
+
     const volunteer = await Volunteer.create({
-      volunteerCode: await generateVolunteerCode(),
-      name,
-      email,
-      phone,
-      whatsapp: phone,
-      interest,
-      message,
+      ...fields,
+      whatsapp: fields.whatsapp || fields.phone,
+      joiningDate: '',
+      validUntil: '',
+      notes: '',
       source: 'website',
       status: 'new',
     })
 
     return res.status(201).json({
       success: true,
-      message: 'Thank you for volunteering. We will contact you soon.',
+      message:
+        'Thank you for applying. Your request is with the admin team. After approval, a volunteer ID card can be issued.',
       data: {
         id: volunteer._id.toString(),
       },
@@ -188,6 +190,138 @@ router.post('/', async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Unable to submit your application right now. Please try again.',
+    })
+  }
+})
+
+router.post('/photo', (req, res) => {
+  uploadCmsImage('volunteer')(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? 'Photo must be 5MB or smaller.'
+          : err.message || 'Failed to upload photo.'
+      return res.status(400).json({ success: false, message })
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please choose a photo.' })
+    }
+    return res.json({
+      success: true,
+      message: 'Photo uploaded successfully.',
+      data: { imageUrl: publicUploadPath('volunteer', req.file.filename) },
+    })
+  })
+})
+
+router.post('/document', (req, res) => {
+  uploadCmsDocument('volunteer', { maxBytes: 2 * 1024 * 1024 })(req, res, (err) => {
+    if (err) {
+      const message =
+        err.code === 'LIMIT_FILE_SIZE'
+          ? 'Document must be 2MB or smaller.'
+          : err.message || 'Failed to upload document.'
+      return res.status(400).json({ success: false, message })
+    }
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please choose a document.' })
+    }
+    return res.json({
+      success: true,
+      message: 'Document uploaded successfully.',
+      data: { fileUrl: publicUploadPath('volunteer', req.file.filename) },
+    })
+  })
+})
+
+const idCardLookupAttempts = new Map()
+
+function allowIdCardLookup(ip) {
+  const key = String(ip || 'unknown')
+  const now = Date.now()
+  const windowMs = 15 * 60 * 1000
+  const current = idCardLookupAttempts.get(key) || []
+  const recent = current.filter((time) => now - time < windowMs)
+  if (recent.length >= 8) {
+    idCardLookupAttempts.set(key, recent)
+    return false
+  }
+  recent.push(now)
+  idCardLookupAttempts.set(key, recent)
+  return true
+}
+
+function toPublicIdCard(item) {
+  return {
+    name: item.name,
+    volunteerCode: item.volunteerCode || '',
+    photoUrl: item.photoUrl || '',
+    bloodGroup: item.bloodGroup || '',
+    interest: item.interest,
+    phone: item.phone,
+    addressLine1: item.addressLine1 || '',
+    addressLine2: item.addressLine2 || '',
+    city: item.city || '',
+    state: item.state || '',
+    pincode: item.pincode || '',
+    emergencyName: item.emergencyName || '',
+    emergencyPhone: item.emergencyPhone || '',
+    joiningDate: item.joiningDate || '',
+    validUntil: item.validUntil || '',
+    status: item.status,
+  }
+}
+
+router.post('/id-card', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for']?.toString().split(',')[0].trim() || req.ip
+    if (!allowIdCardLookup(ip)) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many attempts. Please try again after some time.',
+      })
+    }
+
+    const aadhaar = digitsOnly(req.body?.aadhaarNumber, 12)
+    if (aadhaar.length !== 12) {
+      return res.status(400).json({
+        success: false,
+        message: 'Enter the 12-digit Aadhaar number used during registration.',
+      })
+    }
+
+    const volunteer = await Volunteer.findOne({ aadhaarNumber: aadhaar }).lean()
+    if (!volunteer || volunteer.status === 'declined' || volunteer.status === 'archived') {
+      return res.status(404).json({
+        success: false,
+        message: 'No ID card found for this Aadhaar number. Check the number or wait for admin approval.',
+      })
+    }
+
+    if (volunteer.status === 'new' || volunteer.status === 'contacted') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your application is still under review. You can download the ID card after admin approval.',
+      })
+    }
+
+    if (!volunteer.volunteerCode) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your request is approved, but the ID card is not issued yet. Please check back soon.',
+      })
+    }
+
+    return res.json({
+      success: true,
+      message: 'ID card found. You can download or print it now.',
+      data: toPublicIdCard(volunteer),
+    })
+  } catch (error) {
+    console.error('Public volunteer ID card lookup failed:', error)
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to fetch ID card right now. Please try again.',
     })
   }
 })
@@ -324,6 +458,15 @@ router.patch('/:id', requireAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid status.' })
       }
       existing.status = status
+      if ((status === 'accepted' || status === 'active') && !existing.volunteerCode) {
+        existing.volunteerCode = await generateVolunteerCode()
+      }
+      if ((status === 'accepted' || status === 'active') && !existing.joiningDate) {
+        existing.joiningDate = new Date().toISOString().slice(0, 10)
+      }
+      if ((status === 'accepted' || status === 'active') && !existing.validUntil) {
+        existing.validUntil = addYears(existing.joiningDate, 1)
+      }
     } else {
       const fields = pickVolunteerFields(req.body)
       if (!fields.name || !fields.email || !fields.phone || !fields.interest) {
@@ -364,6 +507,18 @@ router.patch('/:id/issue-card', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Volunteer not found.' })
     }
 
+    if (volunteer.status === 'declined' || volunteer.status === 'archived') {
+      return res.status(400).json({
+        success: false,
+        message: 'Approve this volunteer before generating an ID card.',
+      })
+    }
+    if (volunteer.status === 'new' || volunteer.status === 'contacted') {
+      return res.status(400).json({
+        success: false,
+        message: 'Approve this request first, then generate the ID card.',
+      })
+    }
     if (!volunteer.volunteerCode) {
       volunteer.volunteerCode = await generateVolunteerCode()
     }

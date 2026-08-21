@@ -146,13 +146,13 @@ export function uploadCmsImage(folder = 'about') {
 
 export const uploadHeroImage = uploadCmsImage('hero')
 
-export function uploadCmsDocument(folder = 'reports') {
+export function uploadCmsDocument(folder = 'reports', { maxBytes = 10 * 1024 * 1024 } = {}) {
   const dest = destMap[folder] || reportsUploadsDir
   const name = folder || 'reports'
 
   return multer({
     storage: storageFor(name, dest, DOC_EXTS, '.pdf'),
-    limits: { fileSize: 10 * 1024 * 1024 },
+    limits: { fileSize: maxBytes },
     fileFilter: (_req, file, cb) => {
       if (!ALLOWED_DOCS.has(file.mimetype)) {
         cb(new Error('Only PDF, DOC, DOCX or image files are allowed.'))
